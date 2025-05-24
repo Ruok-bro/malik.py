@@ -1,88 +1,136 @@
 #!/usr/bin/env python3
-# USDT Flash Sender (Termux-compatible)
-# ====================================
-# This script simulates the core functionality of the "USDT Flash Sender" tool01.
-# It allows a user to "send" fake USDT (Tether) tokens on the TRC20 (Tron) network in a simulated manner.
-# No real blockchain transactions or funds are used; this is purely for demonstration and testing23.
-#
-# Summary of functionality:
-# - Prompts for a recipient address and an amount of USDT.
-# - Confirms the transfer with the user.
-# - Simulates a network delay.
-# - Prints a fake transaction ID and confirms completion.
-#
-# Dependencies:
-# - Python 3.x (Termux: install via `pkg install python`)
-# - No external libraries required (uses only the Python standard library).
-#
-# Installation (Termux):
-# 1. Install Python: `pkg install python`
-# 2. (Optional) Install pip if not present: `pkg install python-pip`
-# 3. Place this script in a writable directory on Termux.
-#
-# Usage:
-# 1. Run the script: `python3 usdt_flash_sender.py`
-# 2. When prompted, enter the recipient's TRC20 address (e.g., starting with 'T' for Tron addresses).
-# 3. Enter the amount of USDT to send.
-# 4. Confirm the transaction when prompted.
-# 5. The script will simulate sending and display a fake transaction ID.
-#
-# Limitations & Notes:
-# - This tool DOES NOT interact with any real blockchain or wallet. It only simulates an instant transfer
-#   for UI/testing purposes, as described by the original project45.
-# - Ensure you do not use real private keys or sensitive data, as this is just a dummy interface.
-# - The recipient address is not validated beyond basic checks.
-# - The transaction ID is randomly generated and holds no real meaning.
-#
-# Below is the implementation of this simulation.
-import time
-import random
+"""
+USDT TRC20 Flash Sender Script (Simulation)
+
+Description:
+    This script simulates the "flash send" functionality of USDT (Tether) on the TRON (TRC20) network,
+    based on the quaffiinn/usdt-flash-sender project. It performs a fake (simulated) transfer of USDT
+    between two given wallet addresses, without requiring real private keys or actual transactions.
+    The intention is for testing or demonstration purposes only. No real USDT is moved.
+
+Usage:
+    - Ensure you have Python 3 installed on Termux (Android) or Linux.
+    - Install required dependencies (see instructions below).
+    - Edit the BINANCE_ADDRESS and TRUST_ADDRESS variables below to your wallet addresses.
+    - Optionally adjust the AMOUNT_USDT to send (in USDT).
+    - Run the script: python3 flash_usdt_trc20.py
+
+Compatibility:
+    - Designed for Termux (Android) or any Linux environment (no GUI needed).
+    - Requires an internet connection to fetch token data (optional; simulation does not strictly need it).
+    - The script uses the TronPy library to query TRON network data for USDT.
+
+Dependencies:
+    - tronpy: Python library for interacting with TRON. Install with:
+        pip install tronpy
+    - (Termux may require: pkg install python, pip, etc.)
+
+Security and Limitations:
+    - This script is a simulation. **No private keys are used or needed.**
+    - Do NOT paste or share any private keys or sensitive data in this script.
+    - Always keep your wallet keys secure. This script only uses public addresses.
+    - If Tron network access fails or is unavailable, the script will continue in offline simulation mode.
+    - Do not use this for actual transfers. It's for demonstration/testing only.
+"""
 import sys
+import secrets
 
-def main():
-    print("\n=== USDT Flash Sender (Simulation) ===")
-    # Prompt for recipient address
-    recipient = input("Enter recipient address: ").strip()
-    if not recipient:
-        print("Error: No address entered.")
-        sys.exit(1)
+# === Configuration ===
+# Provide your TRC20 USDT wallet addresses here (Base58 format, typically starts with 'T').
+# The script will simulate sending from TRUST_ADDRESS to BINANCE_ADDRESS.
+BINANCE_ADDRESS = "TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"  # Replace with your actual Binance (TRC20 USDT) address
+TRUST_ADDRESS   = "TYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"  # Replace with your actual Trust Wallet (TRC20 USDT) address
 
-    # Prompt for amount
-    amount_input = input("Enter amount of USDT to send: ").strip()
+# Amount of USDT to "flash send" (in USDT units). This is a simulated amount.
+AMOUNT_USDT = 10.0
+
+# TRC20 USDT Token Contract (official TRON USDT contract address)
+USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
+
+# === End Configuration ===
+
+def is_valid_tron_address(addr: str) -> bool:
+    """Basic check for Tron address format."""
+    return isinstance(addr, str) and len(addr) >= 30 and addr[0] == 'T'
+
+# Validate addresses
+if not (is_valid_tron_address(BINANCE_ADDRESS) and is_valid_tron_address(TRUST_ADDRESS)):
+    print("[!] ERROR: Please set valid Tron (TRC20) addresses for BINANCE_ADDRESS and TRUST_ADDRESS in the script.")
+    sys.exit(1)
+
+print("\n--- USDT TRC20 Flash Sender (Simulation) ---")
+print("Simulating transfer of USDT on TRON network (TRC20).")
+print(f"From (Trust Wallet) : {TRUST_ADDRESS}")
+print(f"To   (Binance Addr) : {BINANCE_ADDRESS}")
+print(f"Amount            : {AMOUNT_USDT} USDT\n")
+
+# Attempt to fetch token data using TronPy (optional)
+try:
+    from tronpy import Tron
+    client = Tron()
+    usdt_contract = client.get_contract(USDT_CONTRACT)
+    symbol = usdt_contract.functions.symbol()
+    decimals = usdt_contract.functions.decimals()
+    print(f"[+] Connected to TRON network. Token symbol: {symbol}, Decimals: {decimals}")
+
+    # Fetch balances
     try:
-        # Convert to float to allow decimal amounts
-        amount = float(amount_input)
-        if amount <= 0:
-            raise ValueError
-    except ValueError:
-        print("Error: Amount must be a positive number.")
-        sys.exit(1)
+        bal_trust = usdt_contract.functions.balanceOf(TRUST_ADDRESS) or 0
+        bal_bin = usdt_contract.functions.balanceOf(BINANCE_ADDRESS) or 0
+        bal_trust_hr = bal_trust / (10 ** decimals)
+        bal_bin_hr = bal_bin / (10 ** decimals)
+        print(f"[+] Balance of Trust Wallet address ({TRUST_ADDRESS}): {bal_trust_hr} {symbol}")
+        print(f"[+] Balance of Binance address ({BINANCE_ADDRESS}): {bal_bin_hr} {symbol}")
+    except Exception as e:
+        print(f"[!] Unable to fetch balances: {e}")
+        bal_trust_hr = None
+        bal_bin_hr = None
 
-    # Confirm transaction details with user
-    print(f"\nYou are about to send {amount} fake USDT to {recipient}")
-    confirm = input("Confirm transaction? (y/n): ").strip().lower()
-    if confirm not in ('y', 'yes'):
-        print("Transaction cancelled by user.")
-        sys.exit(0)
+except ImportError:
+    print("[!] TronPy not installed or failed to import. Install with 'pip install tronpy'. Proceeding with simulation only.")
+    symbol = "USDT"
+    decimals = 6
+    bal_trust_hr = None
+    bal_bin_hr = None
 
-    # Simulate sending transaction
-    print("\nSimulating transaction...", end='', flush=True)
-    # Simulate a short delay (instant simulation)
-    for i in range(3):
-        print(".", end='', flush=True)
-        time.sleep(0.5)
-    print(" Done!")
+except Exception as e:
+    print(f"[!] Error accessing Tron network or USDT contract: {e}")
+    print("Continuing in offline simulation mode...")
+    symbol = "USDT"
+    decimals = 6
+    bal_trust_hr = None
+    bal_bin_hr = None
 
-    # Generate a fake transaction ID (64 hex chars, similar to a Tron txID)
-    fake_txid = "0x" + ''.join(random.choices('0123456789abcdef', k=64))
-    # Print transaction details
-    print("\nTransaction successful!")
-    print(f"Transaction ID: {fake_txid}")
-    print(f"Recipient: {recipient}")
-    print(f"Amount: {amount} USDT (simulated)")
-    # Add a timestamp for realism
-    print(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime())} UTC")
-    print("\n*** NOTE: This was a simulated transaction (no real USDT was sent) ***")
+print("\n--- Simulating USDT Transfer ---")
+amount_tokens = AMOUNT_USDT
 
-if __name__ == "__main__":
-    main()
+# Check if we have a balance to compare
+if bal_trust_hr is not None:
+    if AMOUNT_USDT > bal_trust_hr:
+        print(f"[!] Warning: Trust wallet has {bal_trust_hr} {symbol}, which is less than the send amount {AMOUNT_USDT}. Proceeding with simulation anyway.")
+else:
+    print("[*] Trust wallet balance unavailable; cannot verify sufficient balance (simulation only).")
+
+print(f"Sending {amount_tokens} {symbol} from Trust Wallet to Binance address...")
+
+# Generate a fake transaction ID for demonstration
+txid = secrets.token_hex(32)  # 64 hex chars
+print(f"[+] Transaction simulated. (Fake TXID: {txid})\n")
+
+# Compute and display new balances (simulation)
+if bal_trust_hr is not None and bal_bin_hr is not None:
+    new_bal_trust = bal_trust_hr - AMOUNT_USDT
+    new_bal_bin = bal_bin_hr + AMOUNT_USDT
+    # Avoid negative balance display
+    if new_bal_trust < 0:
+        new_bal_trust = 0.0
+    print("[+] NEW (simulated) balances after transfer:")
+    print(f"    Trust Wallet:   {new_bal_trust} {symbol}")
+    print(f"    Binance Addr:   {new_bal_bin} {symbol}")
+else:
+    print("[*] Balances after transfer not computed (offline simulation mode).")
+    print("    (Run with tronpy installed and a network connection to compute balances.)")
+
+print("\n--- Simulation Complete ---")
+print("Note: This was a SIMULATED transfer. No actual USDT was moved.")
+print("Ensure you handle real private keys and wallet data securely when performing real transactions.")
